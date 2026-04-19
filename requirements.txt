@@ -1,0 +1,6 @@
+numpy==1.26.4
+qiskit==1.0.2
+qiskit-aer
+qiskit-optimization==0.6.1
+qiskit-algorithms==0.3.0
+python-sat==1.8.dev13
