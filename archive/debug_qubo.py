@@ -1,4 +1,3 @@
-"""Diagnostic: check the QUBO matrix values and energies for known configurations."""
 import numpy as np
 from takuzu_2d_qubo import Takuzu2DBuilder
 from qiskit_optimization.converters import QuadraticProgramToQubo
@@ -7,7 +6,6 @@ N = 4
 builder = Takuzu2DBuilder(N=N)
 qp = builder.build()
 
-# Check the raw Qiskit objective before QuadraticProgramToQubo
 print("=== Raw QP from builder ===")
 print(f"Num variables: {qp.get_num_vars()}")
 print(f"Num constraints: {qp.get_num_linear_constraints()}")
@@ -18,17 +16,14 @@ quad = qp.objective.quadratic.to_dict(use_name=True)
 print(f"Num linear terms: {len(lin)}")
 print(f"Num quadratic terms: {len(quad)}")
 
-# Print a few linear terms
 for k, v in sorted(lin.items())[:8]:
     print(f"  lin[{k}] = {v}")
 
-# Check accumulated dicts from builder
 print(f"\n=== Builder accumulators ===")
 print(f"lin_dict entries: {len(builder.lin_dict)}")
 print(f"quad_dict entries: {len(builder.quad_dict)}")
 print(f"const: {builder.const}")
 
-# Now convert to pure QUBO (same as test script)
 conv = QuadraticProgramToQubo()
 qubo_problem = conv.convert(qp)
 
@@ -42,7 +37,6 @@ quad2 = qubo_problem.objective.quadratic.to_dict(use_name=True)
 print(f"Num linear terms: {len(lin2)}")
 print(f"Num quadratic terms: {len(quad2)}")
 
-# Build Q matrix same way as test script
 linear_idx = qubo_problem.objective.linear.to_dict()
 quadratic_idx = qubo_problem.objective.quadratic.to_dict()
 var_names = [v.name for v in qubo_problem.variables]
@@ -57,12 +51,10 @@ print(f"\n=== Q matrix ===")
 print(f"Total entries: {len(Q)}")
 print(f"Sum of all Q values: {sum(Q.values())}")
 
-# Check Q entries for x variables only
 x_entries = {k: v for k, v in Q.items() if k[0].startswith('x') and k[1].startswith('x')}
 print(f"Q entries involving only x vars: {len(x_entries)}")
 print(f"Sum of x-only Q values: {sum(x_entries.values())}")
 
-# Evaluate energy for all-zeros
 def eval_energy(Q, sample):
     e = 0
     for (i, j), val in Q.items():
@@ -75,7 +67,6 @@ for r in range(N):
     for c in range(N):
         all_ones_x[f'x_{r}_{c}'] = 1
 
-# A known valid Takuzu board
 valid_board = [
     [1, 0, 1, 0],
     [0, 1, 0, 1],
@@ -87,7 +78,6 @@ for r in range(N):
     for c in range(N):
         valid_sample[f'x_{r}_{c}'] = valid_board[r][c]
 
-# For valid sample, set w variables optimally (w = xi*xj)
 for r in range(N):
     for c in range(N-2):
         w_name = f'w_row_{r}_col_{c}'
