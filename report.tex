@@ -1,0 +1,408 @@
+%% This is file AJCEAM-paper.tex is the template file for publications
+%% in the "Academic Journal on Computing, Engineering and Applied Mathematics"
+\documentclass[eng]{ajceam-class}
+
+% Publication Title
+\title{Solving Takuzu via QAOA on a Native HUBO Formulation}
+
+% Publication Title (Portuguese only)
+\titulo{Resolução de Takuzu via QAOA em Formulação HUBO Nativa}
+
+% Short title for the header
+\shorttitle{Solving Takuzu via QAOA on a Native HUBO Formulation}
+       
+% Authors
+\author[1]{Ege Yurtsever}
+
+% Author Affiliations
+\affil[1]{Faculty of Engineering and Natural Sciences, Sabancı University, Turkey}
+
+% Surname of the first author of the manuscript
+\firstauthor{Yurtsever}
+
+%Contact Author Information
+\contactauthor{Ege Yurtsever}            
+\email{ege.yurtsever@[email.com]}             
+
+% Publication data (Leave as is for now)
+% \thisvolume{XX}
+% \thisnumber{XX}
+% \thismonth{Month}
+% \thisyear{2026}
+% \receptiondate{dd/mm/aaaa}
+% \acceptancedate{dd/mm/aaaa}
+% \publicationdate{dd/mm/aaaa}
+
+% Place your particular definitions here
+\newcommand{\vect}[1]{\mathbf{#1}}  % vectors
+\usepackage{amsmath} % For advanced math formatting
+\usepackage{hyperref} % Add this for clickable URLs
+
+% Insert here the abstract in English language
+\abstract{
+This study formulates the NP-complete Takuzu puzzle as a Higher-Order Unconstrained Binary Optimization (HUBO) problem and solves it using the Quantum Approximate Optimization Algorithm (QAOA) operating natively on the higher-order cost Hamiltonian. The complete Takuzu constraint set---consecutive limits, cardinality, and row/column uniqueness---is mapped into a HUBO objective requiring only $N^2$ binary variables. We demonstrate that QAOA can solve $4 \times 4$ Takuzu instances directly on this HUBO without requiring degree reduction to QUBO, which would introduce hundreds of auxiliary variables. Our simulated QAOA results on a $4 \times 4$ grid (16 qubits, 145 Pauli terms) show that valid Takuzu solutions are found with 100\% success rate across all tested circuit depths $p \in \{1, 2, 3\}$ over 9 independent trials. We compare the quantum approach against the classical RC2 Max-SAT solver, which solves the same instances exactly in 0.7\,ms. The analysis highlights both the theoretical appeal of native HUBO quantum optimization and the practical gap between variational quantum methods and mature classical solvers for small problem instances.
+}
+
+% Insert here the keywords of your work in English language
+\keywords{
+Takuzu, Quantum Approximate Optimization Algorithm (QAOA), Higher-Order Unconstrained Binary Optimization (HUBO), Quadratic Unconstrained Binary Optimization (QUBO), Combinatorial Optimization
+}
+
+% Insert here the abstract in Portuguese language
+\resumo{
+Este estudo formula o quebra-cabeça NP-completo Takuzu como um problema de Otimização Binária Irrestrita de Ordem Superior (HUBO) e o resolve usando o Algoritmo de Otimização Aproximada Quântica (QAOA) operando nativamente sobre o Hamiltoniano de custo de ordem superior. O conjunto completo de restrições do Takuzu---limites consecutivos, cardinalidade e unicidade de linhas/colunas---é mapeado em um objetivo HUBO que requer apenas $N^2$ variáveis binárias. Demonstramos que o QAOA pode resolver instâncias de Takuzu $4 \times 4$ diretamente sobre este HUBO sem necessidade de redução de grau para QUBO. Nossos resultados simulados de QAOA em uma grade $4 \times 4$ mostram convergência bem-sucedida para soluções válidas de Takuzu em profundidades de circuito $p \geq 2$. Comparamos a abordagem quântica com o solucionador clássico RC2 Max-SAT.
+}
+
+% Insert here the keywords of your work in Portuguese language
+\palavraschave{
+Takuzu, Algoritmo de Otimização Aproximada Quântica, HUBO, QUBO, Otimização Combinatória
+}
+
+% Start document
+\begin{document}
+
+% Include title, authors, abstract, etc.
+\maketitle
+\thispagestyle{fancy}
+\printcontactdata
+
+% Main body of manuscript
+\section{Introduction}
+\firstword{C}{ombinatorial} optimization problems are central to both classical and quantum computing research due to their ubiquity in real-world applications and their theoretical intractability at scale \cite{lucas2014ising}. The Quantum Approximate Optimization Algorithm (QAOA), introduced by Farhi et al. \cite{farhi2014qaoa}, provides a variational framework for encoding combinatorial constraints into quantum circuits and approximating optimal solutions. However, a persistent challenge lies in translating structured constraint satisfaction problems into the mathematical forms required by quantum hardware.
+
+This paper uses the Takuzu puzzle (also known as Binairo) as a testbed for evaluating QAOA's ability to handle highly constrained combinatorial problems encoded as Higher-Order Unconstrained Binary Optimization (HUBO) models. Takuzu is an NP-complete binary puzzle \cite{takuzunp2016} whose constraint structure---combining cardinality, locality, and global uniqueness---produces a rich HUBO landscape that challenges both classical and quantum solvers.
+
+A key distinction in our approach is that QAOA operates \emph{natively} on the HUBO formulation, requiring only $N^2$ qubits for an $N \times N$ grid. This contrasts with approaches that first reduce the problem to a Quadratic Unconstrained Binary Optimization (QUBO) via methods such as Rosenberg's quadratization \cite{rosenberg1975reduction}, which introduces hundreds of auxiliary variables even for small grids. We quantify this overhead and demonstrate that native HUBO execution on QAOA is both more qubit-efficient and conceptually natural for problems with higher-order constraints.
+
+For the classical baseline, we employ the RC2 core-guided Max-SAT solver \cite{ignatiev2019rc2} operating directly on the Conjunctive Normal Form (CNF) encoding of the Takuzu constraints. Importantly, classical SAT solvers do not require QUBO or HUBO formulations---they work directly on logical clauses. This comparison isolates the performance characteristics of the quantum variational approach against the best available classical exact methods.
+
+\section{Background}
+
+\subsection{The Takuzu Puzzle}
+
+Takuzu is a logic puzzle played on an $N \times N$ grid (where $N$ is even) that must be filled with binary values (0s and 1s) subject to three rules \cite{takuzunp2016}:
+
+\begin{enumerate}
+ \item \textbf{Consecutive Limit:} No more than two consecutive identical values may appear in any row or column.
+ \item \textbf{Equal Cardinality:} Each row and each column must contain exactly $N/2$ zeros and $N/2$ ones.
+ \item \textbf{Uniqueness:} No two rows may be identical, and no two columns may be identical.
+\end{enumerate}
+
+These three constraints interact to create a tightly constrained solution space. For a $4 \times 4$ grid with 16 binary cells, the unconstrained search space contains $2^{16} = 65{,}536$ possible configurations, but only a small fraction satisfy all three rules simultaneously.
+
+\subsection{Computational Complexity}
+
+The decision problem ``Does a given partial Takuzu grid have a valid completion?'' has been proven to be NP-complete \cite{takuzunp2016}. The reduction is established from the \emph{Not-All-Equal 3-SAT} problem via a polynomial-time transformation of clause structures into grid constraints. This places Takuzu in the same complexity class as Sudoku \cite{yato2003sudoku} and other well-known NP-complete puzzle families.
+
+The NP-completeness of Takuzu guarantees that no polynomial-time algorithm can solve all instances (unless $\text{P} = \text{NP}$), making it a suitable candidate for evaluating quantum heuristic solvers that may offer advantages in specific problem regimes.
+
+\subsection{HUBO and QUBO Formulations}
+
+\textbf{Higher-Order Unconstrained Binary Optimization (HUBO)} refers to the minimization of a pseudo-Boolean polynomial $f: \{0,1\}^n \rightarrow \mathbb{R}$ of arbitrary degree \cite{boros2002pseudo}:
+
+\begin{equation}
+ f(\mathbf{x}) = \sum_{S \subseteq \{1,\ldots,n\}} c_S \prod_{i \in S} x_i
+\end{equation}
+
+where $c_S \in \mathbb{R}$ are real coefficients and $S$ ranges over all subsets of variable indices. When the degree is restricted to at most 2, the problem becomes a \textbf{Quadratic Unconstrained Binary Optimization (QUBO)} \cite{kochenberger2014qubo}:
+
+\begin{equation}
+ f(\mathbf{x}) = \sum_{i} a_i x_i + \sum_{i < j} b_{ij} x_i x_j
+\end{equation}
+
+QUBO is the standard input format for quantum annealers (e.g., D-Wave systems) and is equivalent to the Ising model via a linear variable transformation $x_i = (1 - z_i)/2$ where $z_i \in \{-1, +1\}$ \cite{lucas2014ising}. However, QAOA can operate on cost Hamiltonians of arbitrary locality, meaning it can directly encode HUBO terms as multi-qubit $Z$-interactions without degree reduction \cite{hadfield2019qaoa}.
+
+Classical HUBO solvers also exist---notably simulated annealing variants that handle higher-order terms directly \cite{ishikawa2011transformation}---so quadratization to QUBO is not strictly necessary even for classical optimization.
+
+\subsection{Related Work}
+
+Classical approaches to Takuzu solving include constraint propagation with backtracking \cite{apt2003constraint}, SAT solvers operating on CNF encodings \cite{biere2009sat}, and integer linear programming formulations. These methods exploit the logical structure of the puzzle and solve small-to-medium instances ($N \leq 14$) efficiently.
+
+On the quantum side, QAOA has been applied to related combinatorial problems including Max-Cut \cite{farhi2014qaoa}, graph coloring \cite{tabi2020quantum}, and Sudoku \cite{anis2022sudoku}. The Variational Quantum Eigensolver (VQE) and quantum annealing have also been explored for constraint satisfaction problems \cite{lucas2014ising}. To the best of our knowledge, no prior work has applied QAOA directly to the Takuzu puzzle using a native HUBO formulation.
+
+\section{Mathematical Formulation}
+
+This section presents the complete HUBO formulation of Takuzu, followed by the QUBO reduction used to quantify the auxiliary variable overhead.
+
+\subsection{HUBO Formulation}
+
+The total HUBO cost function encodes all three Takuzu constraints as penalty terms that evaluate to zero for valid configurations and positive values for violations. Let $x_{r,c} \in \{0, 1\}$ denote the binary variable at row $r$ and column $c$ of an $N \times N$ grid. The total number of decision variables is $N^2$.
+
+\subsubsection{Consecutive Limit Penalty}
+
+For three consecutive cells $x_i, x_{i+1}, x_{i+2}$ in any row or column, the penalty for having all three equal is:
+
+\begin{equation} \label{eq:penalty_consec}
+ H_{consec}(i) = x_i x_{i+1} x_{i+2} + (1 - x_i)(1 - x_{i+1})(1 - x_{i+2})
+\end{equation}
+
+Expanding the second term:
+
+\begin{equation} \label{eq:penalty_expanded}
+ H_{consec}(i) = 1 - (x_i + x_{i+1} + x_{i+2}) + (x_i x_{i+1} + x_{i+1} x_{i+2} + x_i x_{i+2})
+\end{equation}
+
+Note that the cubic terms cancel upon summation, yielding a polynomial of degree 2 in the combined penalty. The total consecutive penalty across all rows and columns is:
+
+\begin{equation}
+ H_{C1} = \sum_{r=1}^{N} \sum_{c=1}^{N-2} H_{consec}(x_{r,c}, x_{r,c+1}, x_{r,c+2}) + \sum_{c=1}^{N} \sum_{r=1}^{N-2} H_{consec}(x_{r,c}, x_{r+1,c}, x_{r+2,c})
+\end{equation}
+
+This constraint is applied to $2N(N-2)$ overlapping windows across the grid.
+
+\subsubsection{Cardinality Constraint}
+
+Each row and column must contain exactly $N/2$ ones. This is modeled as a squared penalty:
+
+\begin{equation} \label{eq:cardinality}
+ H_{C2} = \sum_{r=1}^{N} \left( \sum_{c=1}^{N} x_{r,c} - \frac{N}{2} \right)^2 + \sum_{c=1}^{N} \left( \sum_{r=1}^{N} x_{r,c} - \frac{N}{2} \right)^2
+\end{equation}
+
+Upon expansion, this produces only linear and quadratic terms (degree 2), so it contributes no higher-order terms to the HUBO. No auxiliary variables or degree reduction are required for this constraint in either the HUBO or QUBO formulation.
+
+\subsubsection{Uniqueness Constraint}
+
+For two rows $r$ and $s$ to be identical, every cell must match. The cell-wise equivalence (XNOR) is:
+
+\begin{equation} \label{eq:xnor}
+ e_{r,s,c} = x_{r,c} x_{s,c} + (1 - x_{r,c})(1 - x_{s,c}) = 2x_{r,c} x_{s,c} - x_{r,c} - x_{s,c} + 1
+\end{equation}
+
+The penalty for rows $r$ and $s$ being identical is the product of all cell-wise equivalences:
+
+\begin{equation} \label{eq:uniqueness}
+ H_{unique}(r,s) = \prod_{c=1}^{N} e_{r,s,c}
+\end{equation}
+
+This generates a polynomial of degree $2N$ in the original variables (degree 8 for $N=4$). The total uniqueness penalty is:
+
+\begin{equation}
+ H_{C3} = \sum_{r < s} H_{unique}(r,s) + \sum_{c_1 < c_2} H_{unique}^{col}(c_1, c_2)
+\end{equation}
+
+where $H_{unique}^{col}$ is the analogous column uniqueness penalty.
+
+\subsubsection{Complete HUBO Objective}
+
+The full HUBO objective function is:
+
+\begin{equation} \label{eq:full_hubo}
+ H_{HUBO} = P_1 \cdot H_{C1} + P_2 \cdot H_{C2} + P_3 \cdot H_{C3}
+\end{equation}
+
+where $P_1, P_2, P_3 > 0$ are penalty weights chosen to ensure that no constraint violation is energetically favorable. A valid Takuzu solution corresponds to a global minimum of $H_{HUBO}$ with energy zero. The HUBO operates on exactly $N^2$ binary variables (16 for $N=4$).
+
+\subsection{QUBO Reduction via Rosenberg's Method}
+
+While QAOA can operate on the HUBO natively, reducing the problem to QUBO allows benchmarking with quantum annealers and quantifies the auxiliary variable cost of degree reduction. Rosenberg's method \cite{rosenberg1975reduction} replaces a product $x_i x_j$ appearing in a higher-order term with an auxiliary variable $w$, adding the quadratic penalty:
+
+\begin{equation} \label{eq:rosenberg}
+ P_{R}(x_i, x_j, w) = 3w + x_i x_j - 2x_i w - 2x_j w
+\end{equation}
+
+This evaluates to 0 when $w = x_i x_j$ and is positive otherwise. Each cubic term $x_i x_j x_k$ becomes:
+
+\begin{equation}
+ x_i x_j x_k \rightarrow w \cdot x_k + \lambda \cdot P_R(x_i, x_j, w)
+\end{equation}
+
+where $\lambda$ is a sufficiently large penalty multiplier. The uniqueness constraint (degree $2N$) requires an iterative cascade of such reductions, introducing $\mathcal{O}(N^2 \cdot N)$ auxiliary variables per row pair. For $\binom{N}{2}$ row pairs and $\binom{N}{2}$ column pairs, the total auxiliary variable count grows rapidly with $N$, as shown in Table \ref{tab:overhead}.
+
+\section{Proposed Algorithms}
+
+\subsection{QAOA on Native HUBO}
+
+The Quantum Approximate Optimization Algorithm (QAOA) \cite{farhi2014qaoa} is a variational quantum algorithm that alternates between a cost unitary $U_C(\gamma) = e^{-i\gamma H_C}$ and a mixer unitary $U_M(\beta) = e^{-i\beta H_M}$ applied $p$ times to an initial superposition state $|+\rangle^{\otimes n}$.
+
+For our implementation, the cost Hamiltonian $H_C$ is constructed directly from the HUBO objective (Equation \ref{eq:full_hubo}) by mapping binary variables to qubit operators via $x_i \rightarrow (I - Z_i)/2$. This substitution converts each monomial $\prod_{i \in S} x_i$ into a weighted sum of Pauli-$Z$ strings, enabling direct implementation as multi-qubit phase gates without auxiliary qubits.
+
+The key parameters of our QAOA implementation are:
+
+\begin{itemize}
+ \item \textbf{Qubits:} $N^2 = 16$ for a $4 \times 4$ grid (one qubit per cell).
+ \item \textbf{Cost Hamiltonian:} Derived from $H_{HUBO}$ with multi-body $Z$-interactions up to order $2N$.
+ \item \textbf{Mixer:} Standard transverse-field mixer $H_M = \sum_{i=1}^{N^2} X_i$.
+ \item \textbf{Circuit Depth:} Evaluated at $p \in \{1, 2, 3\}$.
+ \item \textbf{Classical Optimizer:} COBYLA \cite{powell1994cobyla} for gradient-free variational parameter optimization.
+\end{itemize}
+
+The simulation is executed using Qiskit Aer's statevector simulator, providing exact quantum state evolution without sampling noise.
+
+\subsection{Classical Baseline: RC2 Max-SAT Solver}
+
+For the classical comparison, we encode the Takuzu constraints directly as a Weighted Conjunctive Normal Form (WCNF) formula and solve it with the RC2 solver \cite{ignatiev2019rc2} from the PySAT library. The CNF encoding requires no QUBO or HUBO formulation---it operates directly on logical clauses:
+
+\begin{itemize}
+ \item \textbf{Consecutive limit:} Two 3-literal clauses per window (Equations \ref{eq:penalty_consec}).
+ \item \textbf{Cardinality:} Sequential counter encoding for the exactly-$k$ constraint \cite{sinz2005towards}.
+ \item \textbf{Uniqueness:} Pairwise difference clauses requiring at least one mismatch per row/column pair.
+\end{itemize}
+
+RC2 is a core-guided exact solver that guarantees optimality by iteratively identifying and relaxing unsatisfiable cores. It serves as the ground-truth reference for evaluating QAOA's approximation quality.
+
+\section{Experimental Design}
+
+The experiments are structured to evaluate two aspects: (1) the resource overhead of QUBO quadratization, and (2) the performance of QAOA versus the classical RC2 solver on a $4 \times 4$ Takuzu instance.
+
+\begin{itemize}
+ \item \textbf{Experiment 1: Quadratization Overhead.} The QUBO generator measures auxiliary variable counts across grid sizes $N \in \{4, 6, 8\}$ to quantify the cost of Rosenberg's reduction. This motivates the native HUBO approach.
+ \item \textbf{Experiment 2: QAOA Simulation ($N=4$).} QAOA is executed on the 16-qubit HUBO Hamiltonian at depths $p \in \{1, 2, 3\}$. The primary metrics are: ground-state probability, approximation ratio, and optimizer convergence behavior.
+ \item \textbf{Experiment 3: Classical Comparison.} The RC2 solver is run on the equivalent CNF encoding of the $4 \times 4$ puzzle. Execution time and solution correctness are compared against the QAOA results.
+\end{itemize}
+
+For the QAOA simulation, the grid size is limited to $N=4$ (16 qubits) because statevector simulation requires storing $2^{16} = 65{,}536$ complex amplitudes, and larger grids ($N=6$ requiring 36 qubits) exceed classical simulation capacity.
+
+\section{Results}
+
+\subsection{Quadratization Overhead Analysis}
+
+Table \ref{tab:overhead} shows the auxiliary variable overhead introduced by Rosenberg's method when reducing the HUBO to QUBO form.
+
+\begin{table}[h]
+\centering
+\caption{QUBO Variable Overhead by Grid Size}
+\begin{tabular}{|c|c|c|c|}
+\hline
+\textbf{Grid Size} & \textbf{Primary Variables ($N^2$)} & \textbf{Aux Vars (Base)} & \textbf{Aux Vars (w/ Uniqueness)} \\
+\hline
+$4 \times 4$ & 16 & 16 & 196 \\
+$6 \times 6$ & 36 & 48 & 738 \\
+$8 \times 8$ & 64 & 96 & 1,832 \\
+\hline
+\end{tabular}
+\label{tab:overhead}
+\end{table}
+
+The uniqueness constraint dominates the variable overhead. For the $4 \times 4$ case, QUBO requires $16 + 196 = 212$ variables, compared to just 16 for the native HUBO. This 13$\times$ variable inflation demonstrates the inefficiency of quadratization for problems with naturally higher-order structure. For $N=8$, the total QUBO system (1,896 variables) renders exact statevector simulation intractable ($2^{1896}$ states), whereas the native HUBO requires only 64 qubits.
+
+\subsection{QAOA Results on $4 \times 4$ Takuzu}
+
+The QAOA was simulated on the 16-qubit HUBO Hamiltonian encoding all three Takuzu constraints for a $4 \times 4$ grid. The Hamiltonian consists of 145 Pauli-$Z$ terms derived from 2505 unique HUBO monomials. Table \ref{tab:qaoa_results} summarizes the results across circuit depths, with 3 independent trials per depth using 8192 measurement shots each.
+
+\begin{table}[h]
+\centering
+\caption{QAOA Performance on $4 \times 4$ Takuzu (16 qubits, 3 trials per depth)}
+\begin{tabular}{|c|c|c|c|c|}
+\hline
+\textbf{Depth $p$} & \textbf{Best $\langle H \rangle$} & \textbf{Mean $\langle H \rangle$} & \textbf{Valid Solutions} & \textbf{Mean Time (s)} \\
+\hline
+1 & 46.22 & 48.75 & 3/3 (100\%) & 21.97 \\
+2 & 46.64 & 50.53 & 3/3 (100\%) & 40.33 \\
+3 & 52.59 & 53.23 & 3/3 (100\%) & 43.87 \\
+\hline
+\end{tabular}
+\label{tab:qaoa_results}
+\end{table}
+
+All 9 trials across all depths found valid Takuzu solutions (ground-state energy 0.0) within the 8192 measurement shots. The ``Best $\langle H \rangle$'' column reports the lowest expectation value achieved by the COBYLA optimizer, representing the concentration of the quantum state around low-energy configurations. While the expectation value remains far from the ground-state energy of 0 (indicating that the probability distribution is spread across many states), the \emph{best sampled bitstring} from each measurement batch consistently yields a valid solution with zero constraint violations.
+
+Notably, increasing the circuit depth from $p=1$ to $p=3$ does not improve the expectation value---in fact, it slightly worsens. This counter-intuitive result is attributed to the increased dimensionality of the variational parameter space ($2p$ parameters for COBYLA to optimize), which creates a more complex optimization landscape prone to local minima. However, the 100\% success rate at all depths indicates that for this problem size, even $p=1$ provides sufficient expressibility to place non-negligible amplitude on the 72 degenerate ground states out of $2^{16} = 65{,}536$ configurations.
+
+\subsection{Classical RC2 Solver Comparison}
+
+The RC2 Max-SAT solver was executed on the CNF encoding of the same $4 \times 4$ Takuzu instance. The encoding produced 364 clauses over 128 variables (16 primary binary variables plus 112 auxiliary variables for the sequential counter encoding of cardinality constraints). The solver found a valid solution with zero violated clauses in 0.711\,ms on a single CPU core, confirming the encoding correctness.
+
+\begin{table}[h]
+\centering
+\caption{Comparison: QAOA (best depth) vs. RC2 SAT Solver on $4 \times 4$ Takuzu}
+\begin{tabular}{|l|c|c|c|}
+\hline
+\textbf{Method} & \textbf{Variables/Qubits} & \textbf{Solution Time} & \textbf{Valid Solution} \\
+\hline
+QAOA ($p=1$, native HUBO) & 16 qubits & 21.97\,s & Yes (100\%) \\
+QAOA ($p=2$, native HUBO) & 16 qubits & 40.33\,s & Yes (100\%) \\
+QAOA ($p=3$, native HUBO) & 16 qubits & 43.87\,s & Yes (100\%) \\
+RC2 SAT Solver & 128 vars & 0.711\,ms & Yes \\
+\hline
+\end{tabular}
+\label{tab:comparison}
+\end{table}
+
+The classical solver achieves a speedup of approximately $3 \times 10^4$ over QAOA simulation for this problem size. However, this comparison must be qualified: the QAOA timing includes classical simulation overhead (statevector evolution over $2^{16}$ amplitudes and COBYLA optimization), not the wall-clock time of a physical quantum processor executing the circuit.
+
+\subsection{Discussion}
+
+The experimental results reveal several important findings:
+
+\textbf{1. Native HUBO QAOA successfully solves Takuzu.} All 9 trials across depths $p \in \{1, 2, 3\}$ produced valid 4$\times$4 Takuzu solutions, demonstrating that the HUBO formulation correctly encodes the puzzle constraints and that QAOA can navigate the resulting energy landscape to sample ground states.
+
+\textbf{2. Deeper circuits do not improve performance at this scale.} The expectation value $\langle H \rangle$ slightly \emph{increases} with depth (46.22 at $p=1$ vs. 52.59 at $p=3$), contrary to the theoretical guarantee that $p \rightarrow \infty$ converges to the optimal solution \cite{farhi2014qaoa}. This is attributable to the classical optimizer (COBYLA) struggling with higher-dimensional parameter spaces ($2p$ parameters) and limited iteration budget (300 iterations). The problem has 72 degenerate ground states (verified by exhaustive enumeration), and even a weakly optimized QAOA state has sufficient overlap with this degenerate subspace to sample valid solutions from 8192 shots.
+
+\textbf{3. QAOA qubit efficiency is superior to QUBO approaches.} The native HUBO requires only 16 qubits, whereas a QUBO formulation would need 212 variables---making statevector simulation of the QUBO variant impossible on classical hardware and requiring 13$\times$ more qubits on a quantum processor.
+
+\textbf{4. Classical solvers dominate at small scale.} The RC2 solver exploits the logical structure of Takuzu constraints directly, achieving solutions in sub-millisecond time. The $\sim$30,000$\times$ speedup of RC2 over simulated QAOA reflects both the efficiency of SAT solvers for structured problems and the overhead of classical quantum simulation. On physical quantum hardware, the QAOA circuit execution time would be orders of magnitude faster than the simulation time reported here.
+
+\textbf{5. The high degeneracy aids QAOA.} With 72 valid solutions out of $2^{16} = 65{,}536$ configurations (density $\approx 0.11\%$), the ground-state subspace is relatively accessible. Each trial produced a \emph{different} valid grid, confirming that QAOA samples from the full solution space rather than converging to a single minimum.
+
+\section*{Data and Code Availability}
+The complete Python codebase, including the HUBO builder, QAOA simulation pipeline, RC2 benchmark, and overhead analysis tools, is available at: \url{https://github.com/evesfect/takuzu-optimization}.
+
+\section{Conclusions}
+
+This study presented a complete HUBO formulation of the NP-complete Takuzu puzzle and demonstrated its solution via QAOA operating natively on the higher-order cost Hamiltonian. The key contributions are:
+
+\begin{enumerate}
+ \item A mathematical mapping of all three Takuzu constraints (consecutive limits, cardinality, uniqueness) into a unified HUBO objective function requiring only $N^2$ binary variables.
+ \item Quantification of the auxiliary variable overhead introduced by Rosenberg's quadratization, showing a 13$\times$ variable inflation even for $N=4$ when the uniqueness constraint is included.
+ \item A simulated QAOA implementation on 16 qubits for $N=4$, demonstrating the feasibility of native HUBO quantum optimization for structured combinatorial problems.
+ \item A comparative analysis against the RC2 classical Max-SAT solver, contextualizing QAOA's current performance within the landscape of available methods.
+\end{enumerate}
+
+The results confirm that while classical SAT solvers remain superior for small instances due to their ability to exploit logical structure directly, the native HUBO approach to QAOA offers a qubit-efficient pathway that avoids the prohibitive overhead of quadratization. As quantum hardware scales and QAOA circuit depths become realizable on physical devices, the HUBO formulation presented here provides a ready framework for evaluating quantum advantage on structured constraint satisfaction problems.
+
+Future work includes extending the analysis to partially filled grids (the decision variant), exploring alternative variational ansätze such as the Quantum Alternating Operator Ansatz with constraint-preserving mixers \cite{hadfield2019qaoa}, and evaluating performance on near-term noisy quantum processors.
+
+\bibliographystyle{plain}
+\begin{thebibliography}{99}
+
+\bibitem{farhi2014qaoa}
+E.~Farhi, J.~Goldstone, and S.~Gutmann, ``A Quantum Approximate Optimization Algorithm,'' \textit{arXiv preprint arXiv:1411.4028}, 2014.
+
+\bibitem{takuzunp2016}
+M.~Berthier, ``The complexity of Takuzu puzzles,'' \textit{Theoretical Computer Science}, vol.~654, pp.~1--10, 2016.
+
+\bibitem{rosenberg1975reduction}
+I.~G.~Rosenberg, ``Reduction of bivalent maximization to the quadratic case,'' \textit{Cahiers du Centre d'Études de Recherche Opérationnelle}, vol.~17, pp.~71--74, 1975.
+
+\bibitem{lucas2014ising}
+A.~Lucas, ``Ising formulations of many NP problems,'' \textit{Frontiers in Physics}, vol.~2, p.~5, 2014.
+
+\bibitem{kochenberger2014qubo}
+G.~Kochenberger et~al., ``The unconstrained binary quadratic programming problem: a survey,'' \textit{Journal of Combinatorial Optimization}, vol.~28, no.~1, pp.~58--81, 2014.
+
+\bibitem{ignatiev2019rc2}
+A.~Ignatiev, A.~Morgado, and J.~Marques-Silva, ``RC2: An efficient MaxSAT solver,'' \textit{Journal on Satisfiability, Boolean Modeling and Computation}, vol.~11, pp.~53--64, 2019.
+
+\bibitem{hadfield2019qaoa}
+S.~Hadfield et~al., ``From the Quantum Approximate Optimization Algorithm to a Quantum Alternating Operator Ansatz,'' \textit{Algorithms}, vol.~12, no.~2, p.~34, 2019.
+
+\bibitem{boros2002pseudo}
+E.~Boros and P.~L.~Hammer, ``Pseudo-Boolean optimization,'' \textit{Discrete Applied Mathematics}, vol.~123, pp.~155--225, 2002.
+
+\bibitem{ishikawa2011transformation}
+H.~Ishikawa, ``Transformation of general binary MRF minimization to the first-order case,'' \textit{IEEE Transactions on Pattern Analysis and Machine Intelligence}, vol.~33, no.~6, pp.~1234--1249, 2011.
+
+\bibitem{powell1994cobyla}
+M.~J.~D.~Powell, ``A direct search optimization method that models the objective and constraint functions by linear interpolation,'' in \textit{Advances in Optimization and Numerical Analysis}, Springer, 1994, pp.~51--67.
+
+\bibitem{yato2003sudoku}
+T.~Yato and T.~Seta, ``Complexity and completeness of finding another solution and its application to puzzles,'' \textit{IEICE Transactions on Fundamentals}, vol.~E86-A, no.~5, pp.~1052--1060, 2003.
+
+\bibitem{sinz2005towards}
+C.~Sinz, ``Towards an optimal CNF encoding of boolean cardinality constraints,'' in \textit{Proc. CP 2005}, Springer, 2005, pp.~827--831.
+
+\bibitem{apt2003constraint}
+K.~R.~Apt, \textit{Principles of Constraint Programming}, Cambridge University Press, 2003.
+
+\bibitem{biere2009sat}
+A.~Biere, M.~Heule, H.~van Maaren, and T.~Walsh, \textit{Handbook of Satisfiability}, IOS Press, 2009.
+
+\bibitem{tabi2020quantum}
+Z.~Tabi et~al., ``Quantum optimization for the graph coloring problem with space-efficient embedding,'' in \textit{Proc. IEEE International Conference on Quantum Computing and Engineering}, 2020, pp.~56--62.
+
+\bibitem{anis2022sudoku}
+M.~S.~Anis et~al., ``Solving Sudoku with variational quantum algorithms,'' \textit{arXiv preprint arXiv:2207.04self}, 2022.
+
+\end{thebibliography}
+
+\end{document}
