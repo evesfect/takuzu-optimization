@@ -1,0 +1,432 @@
+% SPDX-FileCopyrightText: 2023 Alexandru Fikl <alexfikl@gmail.com>
+% SPDX-FileCopyrightText: 2016-2017 Robert Baumgarth
+% SPDX-License-Identifier: CC-BY-4.0
+%
+% This package reproduces the UVT (West University of Timișoara) Power Point
+% presentation style defined in the visual identity manual.
+%
+% Usage:
+%   \usetheme[options]{uvt}
+%
+% References:
+%   Colors and Logos: https://dci.uvt.ro/identitate-vizuala
+%
+% Some other implementations:
+%   https://assets-global.website-files.com/641d7b12606bf729cb75f481/6458b9620be9f8af5b003f00_Cercetare%20in%20educatie.pdf
+%
+% The nifty progress bar on top was stolen from
+%   https://github.com/vipowueb/minflat-beamer
+
+\def\fileversion{v0.6.1}
+\def\filedate{2026/04/25}
+
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{beamerthemeuvt}[\filedate \fileversion UVT Beamer Theme]
+
+% <<< options
+
+\RequirePackage{kvoptions}
+\SetupKeyvalOptions{
+    family=uvt,
+    prefix=uvt@
+}
+
+% enable Helvetica Now Display
+\DeclareBoolOption[false]{helveticanow}
+% show progressbar in the header
+\DeclareBoolOption[false]{progressbar}
+% show toc in the section pages
+\DeclareBoolOption[false]{sectiontoc}
+% select language for logos
+\DeclareStringOption[english]{language}
+% show a debug layout grid
+\DeclareBoolOption[false]{showframe}
+\DeclareBoolOption[false]{layoutgrid}
+
+\DeclareDefaultOption{\PackageWarning{beamerthemeuvt}{Unknown option `\CurrentOption`}}
+\ProcessKeyvalOptions*
+
+% >>>
+
+% <<< packages
+
+\RequirePackage{iftex}
+\RequirePackage{relsize}
+
+% fancy graphics
+\RequirePackage{tikz}
+
+% nicer command definitions
+\RequirePackage{xparse}
+
+\ifuvt@showframe
+    \RequirePackage{showframe}
+\fi
+
+\ifuvt@layoutgrid
+    \RequirePackage[
+        grid,
+        gridunit=cm,
+        gridcolor=gray!70,
+        subgridcolor=gray!70,
+        texcoord]{eso-pic}
+\fi
+
+\usecolortheme{uvt}
+
+% code listings
+\RequirePackage{listings}
+
+% >>>
+
+% <<< listings style
+
+\lstset{
+    basicstyle=\ttfamily\small,
+    keywordstyle=\color{UVTDarkBlue}\bfseries,
+    commentstyle=\color{UVTBeamerDarkGray},
+    stringstyle=\color{UVTBeamerYellow!70!black},
+    numbers=left,
+    numberstyle=\tiny\color{UVTDarkBlue!50},
+    numbersep=6pt,
+    frame=single,
+    rulecolor=\color{UVTDarkBlue!30},
+    backgroundcolor=\color{UVTDarkBlue!5},
+    showstringspaces=false,
+    breaklines=true,
+}
+
+% match listings captions to the Beamer caption style
+\def\lst@makecaption#1#2{%
+    \vskip\abovecaptionskip
+    {\centering\usebeamercolor[fg]{caption}\usebeamerfont{caption}#2\par}%
+    \vskip\belowcaptionskip}
+
+% >>>
+
+% <<< commands
+
+\ProvideDocumentCommand \uvtslidelogo { m } {\def\uvt@slidelogo{#1}}
+\ProvideDocumentCommand \venue { m } {\def\uvt@venueupper{\MakeUppercase{#1}}}
+
+% >>>
+
+% <<< assets
+
+\def\uvt@tmp@english{english}
+\def\uvt@tmp@romanian{romanian}
+\ifx\uvt@language\uvt@tmp@english
+    \ProvideDocumentCommand \PageWord {} {Page}
+    \venue{West University of Timișoara}
+    \uvtslidelogo{\includegraphics[width=0.55\paperheight]{assets/uvt-background-logo-black-en}}
+\else\ifx\uvt@language\uvt@tmp@romanian
+    \ProvideDocumentCommand \PageWord {} {Pagina}
+    \venue{Universitatea de Vest din Timișoara}
+    \uvtslidelogo{\includegraphics[width=0.55\paperheight]{assets/uvt-background-logo-black-ro}}
+\else
+    \PackageError{beamerthemeuvt}{Unknown language `\uvt@language`}{}
+\fi\fi
+
+% >>>
+
+% <<< fonts
+
+\ifpdftex
+    \RequirePackage[utf8]{inputenc}
+    \RequirePackage[T1]{fontenc}
+\else
+    \RequirePackage{fontspec}
+\fi
+
+\ifuvt@helveticanow
+    \ifpdftex
+        \PackageWarning{beamerthemeuvt}{HelveticaNowDisplay font is not available on pdfLaTeX. Remove the 'helveticanow' option to silence this warning or switch to LuaLaTeX / XeLaTex.}
+        \RequirePackage[scale=0.9]{tgheros}
+    \else
+        \IfFontExistsTF{HelveticaNowDisplay}{
+            \setsansfont[Ligatures=TeX]{HelveticaNowDisplay}
+        }{
+            \PackageWarning{beamerthemeuvt}{HelveticaNowDisplay font is not available on your system. Remove the 'helveticanow' option to silence this warning.}
+            \setsansfont[Scale=0.9]{TeX Gyre Heros}}
+    \fi
+\else
+    \ifpdftex
+        \RequirePackage[scale=0.9]{tgheros}
+    \else
+        \setsansfont[Scale=0.9]{TeX Gyre Heros}
+    \fi
+\fi
+\renewcommand{\familydefault}{\sfdefault}
+
+\setbeamerfont{title}{size*={20.74}{24.88}, series=\bfseries}
+\setbeamerfont*{subtitle}{size*={12}{14.4}, series=\mdseries}
+\setbeamerfont{author}{size*={10.95}{13.14}, series=\bfseries}
+\setbeamerfont{date}{size*={10}{12}, series=\mdseries}
+
+\setbeamerfont{frametitle}{size*={14.4}{17.28}, series=\bfseries}
+\setbeamerfont{framesubtitle}{size*={10.95}{13.14}, series=\mdseries}
+\setbeamerfont{section title}{size=\LARGE, series=\bfseries}
+
+\setbeamerfont{venue in header}{size*={8}{9.6}, series=\bfseries}
+\setbeamerfont{text in footer}{size*={6}{7.2}, series=\bfseries}
+
+\setbeamerfont{footnote}{size=\tiny}
+
+\setbeamerfont{alerted text} {series=\bfseries}
+\setbeamerfont{block title}{series=\bfseries}
+\setbeamerfont{block title alerted}{series=\bfseries}
+\setbeamerfont{block title example}{series=\bfseries}
+
+\setbeamerfont{enumerate item}{size=\normalsize, series=\bfseries}
+\setbeamerfont{description item}{size=\normalsize, series=\bfseries}
+
+\setbeamerfont{itemize/enumerate body}{size=\normalsize}
+\setbeamerfont{itemize/enumerate subbody}{size=\normalsize}
+\setbeamerfont{itemize/enumerate subsubbody}{size=\normalsize}
+
+% >>>
+
+% <<< outer: header / footer
+
+\defbeamertemplate*{frametitle}{uvtframe}{
+    \nointerlineskip%
+    \begin{tikzpicture}[remember picture, overlay]
+    % top-left logo
+    \fill[UVTBeamerDarkBlue]
+        ([xshift=0.5cm, yshift=-1.5cm]current page.north west)
+        rectangle
+        ([xshift=2cm, yshift=0cm]current page.north west);
+    \node at ([xshift=1.25cm, yshift=-0.75cm]current page.north west)
+        {\includegraphics[width=1.5cm]{assets/logo-uvt-white}};
+    \end{tikzpicture}%
+    % frametitle — vertically centred to the 1.5cm logo height
+    \hbox to \paperwidth{%
+        \hskip 1.85cm\relax
+        \vbox to 1.75cm{%
+            \vfil
+            \ifx\insertframesubtitle\empty
+                {\usebeamerfont{frametitle}\usebeamercolor[fg]{frametitle}\insertframetitle\strut\par}%
+            \else
+                {\usebeamerfont{frametitle}\usebeamercolor[fg]{frametitle}\insertframetitle\par}%
+                {\usebeamerfont{framesubtitle}\usebeamercolor[fg]{framesubtitle}\insertframesubtitle\strut\par}%
+            \fi
+            \vfil
+        }%
+    }%
+}
+
+\newlength{\uvt@progressbarwidth}
+
+\defbeamertemplate{footline}{uvtframe}{
+    \begin{tikzpicture}[remember picture, overlay]
+    \uvt@progressbarwidth=\paperwidth
+    \multiply\uvt@progressbarwidth by \insertframenumber
+    \divide\uvt@progressbarwidth by \inserttotalframenumber
+
+    \fill[UVTAccentWhite]
+        (current page.south west)
+        rectangle
+        ([yshift=0.4cm]current page.south east);
+    \fill[UVTBeamerLightGray, rounded corners=0.2cm]
+        ([xshift=-0.2cm]current page.south west)
+        rectangle
+        ([xshift=\uvt@progressbarwidth, yshift=0.4cm]current page.south west);
+    \fill[UVTBeamerDarkGray]
+        ([yshift=0.40cm]current page.south west)
+        rectangle
+        ([yshift=0.42cm]current page.south east);
+    \end{tikzpicture}%
+    \begin{beamercolorbox}[wd=0.8\paperwidth, ht=0.45cm, dp=0pt, left]{text in footer}%
+        \vbox to 0.35cm{\vfil
+            \hspace{\beamer@leftmargin}%
+            \usebeamerfont{text in footer}%
+            \insertshortauthor ~~~---~~ \uvt@venueupper%
+        \vfil}%
+    \end{beamercolorbox}%
+    \begin{beamercolorbox}[wd=0.2\paperwidth, ht=0.45cm, dp=0pt, right,
+                           rightskip=\beamer@leftmargin]{text in footer}%
+        \vbox to 0.35cm{\vfil
+            \usebeamerfont{text in footer}%
+            \PageWord{} \insertframenumber~/~\inserttotalframenumber%
+        \vfil}%
+    \end{beamercolorbox}%
+}
+\setbeamertemplate{footline}[uvtframe]
+
+% >>>
+
+% <<< inner: environments
+
+% <<< templates
+
+\NewDocumentCommand \titleframe {} {
+    \setbeamertemplate{title page}[uvttitlepage]
+    \setbeamertemplate{background}[uvttitlepage]
+    \frame[plain,noframenumbering]{\titlepage}
+    \setbeamertemplate{background}[uvtslide]
+}
+
+\NewDocumentCommand \sectionframe {} {
+    \setbeamertemplate{section page}[uvtsectionpage]
+    \setbeamertemplate{background}[uvttitlepage]
+    \frame[plain,noframenumbering]{\sectionpage}
+    \setbeamertemplate{background}[uvtslide]
+}
+\AtBeginSection{
+    \sectionframe
+}
+
+% >>>
+
+% <<< title page
+
+\defbeamertemplate{title page}{uvttitlepage}
+{
+    \begin{tikzpicture}[remember picture, overlay]
+    % top right
+    \node[anchor=north east, opacity=0.5, inner xsep=0pt]
+        at ([xshift=-0.5cm, yshift=-0.1cm]current page.north east)
+        {\usebeamerfont{venue in header}\textcolor{UVTWhite}{{\textbf{\uvt@venueupper}}}};
+
+    % bottom left
+    \node[anchor=south west, opacity=0.5, inner xsep=0pt]
+        at ([xshift=0.5cm, yshift=0.0cm]current page.south west)
+        {\textcolor{UVTWhite}{\href{https://www.uvt.ro}{\textbf{www.uvt.ro}}}};
+    \end{tikzpicture}
+
+    \vfill
+    \begin{center}
+        % title format
+        \usebeamerfont{title}\usebeamercolor[fg]{title}
+        \inserttitle\par
+        % subtitle
+        \usebeamerfont{subtitle}\insertsubtitle\par%
+        \bigskip
+        % author
+        \usebeamerfont{author}\insertauthor\par%
+        \medskip
+        % date
+        \usebeamerfont{date}\insertdate%
+    \end{center}
+    \vfill
+}
+
+\defbeamertemplate{section page}{uvtsectionpage}
+{
+    \vfill
+    \ifuvt@sectiontoc
+        \vspace{1cm}
+        \begin{center}
+            \setbeamercolor{section in toc}{fg=UVTWhite}
+            \setbeamercolor{section in toc shaded}{fg=UVTWhite}
+            \setbeamerfont{section in toc}{size=\LARGE, series=\bfseries}
+            \setbeamerfont{section in toc shaded}{size=\LARGE, series=\mdseries}
+            \setbeamertemplate{section in toc shaded}{%
+                \textcolor{UVTWhite!30!UVTBeamerDarkBlue}{\inserttocsection}\par}
+            \tableofcontents[
+                currentsection,
+                sectionstyle=show/shaded,
+                subsectionstyle=hide,
+            ]
+        \end{center}
+    \else
+        \vspace{2cm}
+        \begin{center}
+            \usebeamerfont{section title}\usebeamercolor[fg]{section title}
+            \insertsectionhead\par
+        \end{center}
+    \fi
+    \vfill
+}
+
+% >>>
+
+% <<< background
+
+\defbeamertemplate{background}{uvttitlepage}
+{
+    \begin{tikzpicture}[remember picture, overlay]
+    \node[inner sep=0, anchor=north west] at ([xshift=-1pt, yshift=1pt]current page.north west)
+        {\includegraphics{assets/uvt-background-tile}};
+
+    % top-left logo
+    \fill[UVTWhite]
+        ([xshift=0.5cm, yshift=-1.5cm]current page.north west)
+        rectangle
+        ([xshift=2cm, yshift=0cm]current page.north west);
+    \node at ([xshift=1.25cm, yshift=-0.75cm]current page.north west)
+        {\includegraphics[width=1.5cm]{assets/logo-uvt-blue}};
+    \end{tikzpicture}%
+}
+
+\defbeamertemplate{background}{uvtslide}{
+    \begin{tikzpicture}[remember picture, overlay]
+        \node [opacity=0.0175] at (current page.center) {\uvt@slidelogo};
+    \end{tikzpicture}
+}
+\setbeamertemplate{background}[uvtslide]
+
+% >>>
+
+% <<< itemize
+
+\setbeamertemplate{itemize item}{
+    \tikz[baseline=-0.65ex]{
+        % circle
+        \node[
+        circle,
+        minimum size=1ex,
+        inner sep=0pt,
+        draw=UVTDarkBlue
+        ] (c) {};
+    }
+}
+
+\setbeamertemplate{itemize subitem}{\color{UVTDarkBlue}\small $\bullet$}
+\setbeamertemplate{itemize subsubitem}{\color{UVTSkyBlue}\small $\bullet$}
+
+% >>>
+
+% <<< theorems
+
+\AtBeginEnvironment{definition}{%
+  \setbeamercolor{block body}{bg=UVTAccentWhite}
+  \setbeamercolor{block title}{fg=black,bg=UVTBeamerDarkGray!50}
+}
+
+\AtBeginEnvironment{theorem}{%
+  \setbeamercolor{block body}{bg=UVTAccentWhite}
+  \setbeamercolor{block title}{fg=white,bg=UVTBeamerDarkBlue}
+}
+
+\AtBeginEnvironment{lemma}{%
+  \setbeamercolor{block body}{bg=UVTAccentWhite}
+  \setbeamercolor{block title}{fg=white,bg=UVTSkyBlue}
+}
+
+\AtBeginEnvironment{proposition}{%
+  \setbeamercolor{block body}{bg=UVTAccentWhite}
+  \setbeamercolor{block title}{fg=white,bg=UVTSkyBlue}
+}
+
+
+% >>>
+
+% <<< figures
+
+% disable "Figure:" in the captions
+\setbeamertemplate{caption}{\insertcaption}
+\setbeamertemplate{caption label separator}{}
+
+% >>>
+
+\setbeamersize{
+    text margin left=0.5cm,
+    text margin right=0.5cm,
+    description width=0.075\paperwidth,
+    }
+\setlength{\labelsep}{\dimexpr\labelsep - 0.2em\relax}
+
+% >>>
+
+%% vim: foldmarker=<<<,>>>:foldmethod=marker:nospell:filetype=tex
